@@ -59,9 +59,11 @@ typedef struct tag_lima_params_t
 
 
 /** Parameter sets for LIMA-2p:
- *  N=1024 and q=133121
- *  N=2018 and q=184321
+ *  N= 512 and q=18433
+ *  N=1024 and q=40961
+ *  N=2018 and q=40961
  **/
+extern lima_params_t lima_2p_512;
 extern lima_params_t lima_2p_1024;
 extern lima_params_t lima_2p_2048;
 
@@ -76,8 +78,8 @@ extern lima_params_t lima_sp_1306;
 extern lima_params_t lima_sp_1822;
 extern lima_params_t lima_sp_2062;
 
-extern modp_context_t mod133121;                //q values for LIMA-2p
-extern modp_context_t mod184321;
+extern modp_context_t mod18433;                //q values for LIMA-2p
+extern modp_context_t mod40961;
 extern modp_context_t mod12521473;              //q values for LIMA-sp
 extern modp_context_t mod48181249;
 extern modp_context_t mod44802049;
@@ -130,8 +132,6 @@ int lima_key_gen(lima_params_t* params,
 		 lima_pk_t* pk, lima_sk_t* sk);
 
 /** Function used to encrypt a message m of length  m_len bytes (at most N/8). 
- *  It uses RandCheck to verify that polynomials e and *  v, used 
- *  to encrypt, are in the correct range. 
  *
  *  This routine is used as a helper routine in lima_enc_cpa, to 
  *  prevent decrypion failures.
@@ -144,7 +144,6 @@ int lima_key_gen(lima_params_t* params,
  *    - xof                    Pointer to an already initialized  xof
  *    - c                      Pointer to the ciphertext (c)     
  *  Return 1 if:
- *       - RandCheck returns 0                or if
  *       - xof produces  invalid randomness   or if
  *       - message  too long (8*m_len > N); 
  *  0 otherwise

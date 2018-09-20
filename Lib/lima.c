@@ -4,6 +4,7 @@
 #include <math.h>
 #include <stdlib.h>
 
+lima_fft_t lima_fft_2p_512;
 lima_fft_t lima_fft_2p_1024;
 lima_fft_t lima_fft_2p_2048;
 lima_fft_t lima_fft_sp_1018;
@@ -14,8 +15,10 @@ lima_fft_t lima_fft_sp_2062;
 /** LIMA_2p:
  *  Input parameters = {Type, Mod, N, unused, alpha_0, alpha_1, beta_0, unused, fft_data}
  **/
-lima_params_t lima_2p_1024 = { LIMA_2P, &mod133121,   1024,  0,   32141,    100666,  132991,        0, &lima_fft_2p_1024, {0} };
-lima_params_t lima_2p_2048 = { LIMA_2P, &mod184321,   2048,  0,   88992,    152704,  184231,        0, &lima_fft_2p_2048, {0} };
+lima_params_t lima_2p_512  = { LIMA_2P, &mod18433,    512,  0,    7673,     3935,  18397,        0, &lima_fft_2p_512,  {0} };
+lima_params_t lima_2p_1024 = { LIMA_2P, &mod40961,   1024,  0,   20237,    16233,  40921,        0, &lima_fft_2p_1024, {0} };
+lima_params_t lima_2p_2048 = { LIMA_2P, &mod40961,   2048,  0,   18088,    14056,  40941,        0, &lima_fft_2p_2048, {0} };
+
 
 /** LIMA_sp:
  *  Input parameters =  {Type, Mod, N, e, alpha_0, alpha_1, beta_0, beta_1, fft_data}
@@ -54,6 +57,7 @@ void precompute_noise()
     small_gaussian_values[i] = s;
   }
 
+  precompute_noise_data(&lima_2p_512);
   precompute_noise_data(&lima_2p_1024);
   precompute_noise_data(&lima_2p_2048);
   precompute_noise_data(&lima_sp_1018);
@@ -86,6 +90,7 @@ void InitLima()
   if (init_done) { return; }
 
   precompute_noise();
+  precompute_fft_data(&lima_2p_512);
   precompute_fft_data(&lima_2p_1024);
   precompute_fft_data(&lima_2p_2048);
   precompute_fft_data(&lima_sp_1018);
@@ -121,47 +126,6 @@ int lima_key_gen(lima_params_t* params, const uint8_t* seed, byte_length seedlen
     return 0;
 }
 
-/** Section 2.4 Specification 
- *  Function to check if  polynomials v and e used for encryption
- *  encryption are in the correct range. This is done to keep 
- *  parameters small. 
- *  Return 1 if the input polynomials are in the correct range, else 0
- **/
-int RandCheck(lima_params_t* params, int v[LIMA_MAX_N], int e[LIMA_MAX_N])
-{
-   int a=1;
-   int N=(int)params->N;
-   int t[LIMA_MAX_N];
-   double lhs,rhs;
-   for (int i=0; i<N; i++)
-     { int x=add_mod_q(params->ctx,v[i],e[i]); 
-       t[i]=to_int(params->ctx,x);               // t[i] = v[i] + e[i]
-       if (t[i]>params->ctx->q/2)
-          { t[i]-=params->ctx->q; }
-     }
-   if (params->mode==LIMA_2P)                    
-     { int e=0;
-       for (int i=0; i<N; i++)
-         { e+=t[i]; }
-       lhs=fabs((double) e);
-       rhs=11*sqrt(fabs(2*N))*3.16;              // Accepting condition for LIMA_2p 
-       if (lhs>rhs) { a=0; }
-     }
-   else                     
-     { 
-       int e = 0;
-       for (int i=2; i<N; i++) e += 2*t[i];
-       e += t[1];
-       rhs=11*sqrt(fabs(4*N))*3.16;              // Accepting condition for LIMA_sp
-       for (int k=0; k<N; k++)
-	 { e += t[k];
-           lhs=fabs((double) e);
-           if (lhs>rhs) { return a=0; }
-           if (k+2<N) e -= t[k+2];
-         }
-     }
-   return a;
-}
 
 /* LIMA CPA-Encryption (subroutine). 
  * It encrypts a message m of m_len bytes in length
@@ -193,9 +157,6 @@ int lima_enc_cpa_sub(lima_params_t* params, const uint8_t* m, byte_length m_len,
     for (i = 0; i<N; i++, ss+=5) vp[i] = xof5_to_modp(params, ss);
     for (i = 0; i<N; i++, ss+=5) ep[i] = xof5_to_modp(params, ss);
     for (i = 0; i<N; i++, ss+=5) dp[i] = xof5_to_modp(params, ss);
-
-    // Doing check here is not really a timing issue
-    if (RandCheck(params,vp,ep)==0) { return 1; }
 
     fft(params, vp, v);
     fft(params, ep, e);
@@ -240,11 +201,8 @@ int lima_enc_cpa(lima_params_t* params, const uint8_t* m, byte_length m_len,
   if (seed_len<32 || (8*m_len>params->N)) { return 1; }
   XOF_t xof;
   InitXOF(&xof, seed, seed_len, 2);             //data = 0x02
-  int fl;
-  do
-    { fl=lima_enc_cpa_sub(params, m, m_len, pk, &xof, c); }
-  while (fl==1);
-  return 0;
+  int fl=lima_enc_cpa_sub(params, m, m_len, pk, &xof, c); 
+  return fl;
 }
 
 /* LIMA CPA-Decryption. 
@@ -298,18 +256,11 @@ int lima_enc_cca(lima_params_t* params, const uint8_t* m, byte_length m_len,
   for (int i=0; i<32; i++) { s[i]=seed[i]; }
   for (byte_length i=0; i<m_len; i++) { mu[i]=m[i]; }
   XOF_t xof;
-  int fl;
 
-  do
-    { for (int i=0; i<32;    i++) { mu[m_len+i]=s[i]; }
- 
-      InitXOF(&xof, mu, m_len+32, 3);               //data=0x03 
-      fl=lima_enc_cpa_sub(params,mu,m_len+32,pk,&xof,c); 
-      if (fl==1) { increment_seed(s,32); }
-    }
-  while (fl==1);
-
-  return 0;
+  for (int i=0; i<32;    i++) { mu[m_len+i]=s[i]; }
+  InitXOF(&xof, mu, m_len+32, 3);               //data=0x03 
+  int fl=lima_enc_cpa_sub(params,mu,m_len+32,pk,&xof,c); 
+  return fl;
 }
 
 /* LIMA CCA-decryption. 
@@ -359,12 +310,8 @@ int lima_encap_cpa(lima_params_t* params,const lima_pk_t* pk,
   for (byte_length i=0; i<key_len; i++) { key[i]=seed[i+seed_len-key_len]; }
   XOF_t xof;
   InitXOF(&xof,seed,seed_len-key_len,4);     // data = 0x04
-  int fl;
-  do
-    { fl=lima_enc_cpa_sub(params, key, key_len, pk, &xof, c); }
-  while (fl==1);
-
-  return 0;
+  int fl=lima_enc_cpa_sub(params, key, key_len, pk, &xof, c); 
+  return fl;
 }
 
 /* This returns the key length as well,  but enough space is already
@@ -392,16 +339,10 @@ int lima_encap_cca(lima_params_t* params,const lima_pk_t* pk,
   for (byte_length i=0; i<seed_len; i++) { s[i]=seed[i]; }
 
   XOF_t xof;
-  int fl;
 
-  do
-    { InitXOF(&xof, s, seed_len,5);          // data = 0x05
-      fl=lima_enc_cpa_sub(params,s,seed_len,pk,&xof,c);
-      if (fl==1) { increment_seed(s,(int)seed_len); }
-    }
-  while (fl==1);
-
-  fl=KDF(s,seed_len,key,key_len);
+  InitXOF(&xof, s, seed_len,5);          // data = 0x05
+  int fl=lima_enc_cpa_sub(params,s,seed_len,pk,&xof,c);
+  fl=fl || KDF(s,seed_len,key,key_len);
   return fl;
 }
 
@@ -467,12 +408,13 @@ unsigned int Decode_Val(int t, const uint8_t* B)
 int EncodePK(lima_params_t* params, const lima_pk_t* pk, uint8_t *B)
 {
   switch (params->N)
-    { case 1024: B[0]=0; break;
-      case 2048: B[0]=1; break;
-      case 1018: B[0]=2; break;
-      case 1306: B[0]=3; break;
-      case 1822: B[0]=4; break;
-      case 2062: B[0]=5; break;
+    { case  512: B[0]=0; break;
+      case 1024: B[0]=1; break;
+      case 2048: B[0]=2; break;
+      case 1018: B[0]=3; break;
+      case 1306: B[0]=4; break;
+      case 1822: B[0]=5; break;
+      case 2062: B[0]=6; break;
       B[0]=6;
     }
   int len=1,t=params->ctx->log256_q;
@@ -508,12 +450,13 @@ int EncodeSK(lima_params_t* params, const lima_sk_t* sk, uint8_t *B)
 int EncodeCT(lima_params_t* params, const lima_ciphertext_t* c, uint8_t *B)
 {
  switch (params->N)
-    { case 1024: B[0]=0; break;
-      case 2048: B[0]=1; break;
-      case 1018: B[0]=2; break;
-      case 1306: B[0]=3; break;
-      case 1822: B[0]=4; break;
-      case 2062: B[0]=5; break;
+    { case  512: B[0]=0; break;
+      case 1024: B[0]=1; break;
+      case 2048: B[0]=2; break;
+      case 1018: B[0]=3; break;
+      case 1306: B[0]=4; break;
+      case 1822: B[0]=5; break;
+      case 2062: B[0]=6; break;
       B[0]=6;
     }
   Encode_Val(c->ell,2,B+1);
@@ -536,12 +479,13 @@ int EncodeCT(lima_params_t* params, const lima_ciphertext_t* c, uint8_t *B)
 int DecodePK(lima_params_t** params,lima_pk_t* pk,const uint8_t *B)
 {
   switch (B[0])
-    { case 0: *params=&lima_2p_1024; break;
-      case 1: *params=&lima_2p_2048; break;
-      case 2: *params=&lima_sp_1018; break;
-      case 3: *params=&lima_sp_1306; break;
-      case 4: *params=&lima_sp_1822; break;
-      case 5: *params=&lima_sp_2062; break;
+    { case 0: *params=&lima_2p_512;  break;
+      case 1: *params=&lima_2p_1024; break;
+      case 2: *params=&lima_2p_2048; break;
+      case 3: *params=&lima_sp_1018; break;
+      case 4: *params=&lima_sp_1306; break;
+      case 5: *params=&lima_sp_1822; break;
+      case 6: *params=&lima_sp_2062; break;
       return 1;
     }
   int len=1,t=(*params)->ctx->log256_q;
@@ -562,12 +506,13 @@ int DecodePK(lima_params_t** params,lima_pk_t* pk,const uint8_t *B)
 int DecodeSK(lima_params_t** params, lima_sk_t* sk, lima_pk_t* pk, const uint8_t *B)
 {
   switch (B[0])
-    { case 0: *params=&lima_2p_1024; break;
-      case 1: *params=&lima_2p_2048; break;
-      case 2: *params=&lima_sp_1018; break;
-      case 3: *params=&lima_sp_1306; break;
-      case 4: *params=&lima_sp_1822; break;
-      case 5: *params=&lima_sp_2062; break;
+    { case 0: *params=&lima_2p_512;  break;
+      case 1: *params=&lima_2p_1024; break;
+      case 2: *params=&lima_2p_2048; break;
+      case 3: *params=&lima_sp_1018; break;
+      case 4: *params=&lima_sp_1306; break;
+      case 5: *params=&lima_sp_1822; break;
+      case 6: *params=&lima_sp_2062; break;
       return 1;
     }
   sk->pk=pk;
@@ -595,12 +540,13 @@ int DecodeSK(lima_params_t** params, lima_sk_t* sk, lima_pk_t* pk, const uint8_t
 int DecodeCT(lima_params_t** params,lima_ciphertext_t* c,const uint8_t *B)
 {
   switch (B[0])
-    { case 0: *params=&lima_2p_1024; break;
-      case 1: *params=&lima_2p_2048; break;
-      case 2: *params=&lima_sp_1018; break;
-      case 3: *params=&lima_sp_1306; break;
-      case 4: *params=&lima_sp_1822; break;
-      case 5: *params=&lima_sp_2062; break;
+    { case 0: *params=&lima_2p_512;  break;
+      case 1: *params=&lima_2p_1024; break;
+      case 2: *params=&lima_2p_2048; break;
+      case 3: *params=&lima_sp_1018; break;
+      case 4: *params=&lima_sp_1306; break;
+      case 5: *params=&lima_sp_1822; break;
+      case 6: *params=&lima_sp_2062; break;
       return 1;
     }
   int len=3,t=(*params)->ctx->log256_q;

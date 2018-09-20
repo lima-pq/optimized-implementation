@@ -36,35 +36,8 @@ void Test_XOF()
   fprintf(fp,"\tLine 2: The data value passed into InitXOF\n");
   fprintf(fp,"\tLine 3: The first 32 bytes of output of the XOF (first byte ont he left)\n");
   fprintf(fp,"\tLine 4: The first 3 field elements produced from the byte string output in the fields.\n");
-  fprintf(fp,"\t\t F_{133121}, F_{44802049} and F_{133121}\n");
+  fprintf(fp,"\t\t F_{18433}, F_{44802049} and F_{18433}\n");
   fprintf(fp,"\tLine 5: The first six Gaussian values produced from that byte string\n");
-
-  fprintf(fp,"\nExplanation/Mathematical check of the first five lines\n");
-
-  fprintf(fp,"\nFor the fourth line\n");
-  fprintf(fp,"\tlog_{256}{133121}=2.11   and  log_{256}{44802049}=3.17\n");
-  fprintf(fp,"So for elements in the small field we take 6 bytes, and for elements in the big field we take 8 bytes\n");
-
-  fprintf(fp,"0x919fe8a0e77c     = 160115988686716\n");
-  fprintf(fp,"\t160115988686716     %% 133121  = 109366  = 0x01ab36\n");
-  fprintf(fp,"0x68390e6888217902 = 7510049695740295426\n");
-  fprintf(fp,"\t7510049695740295426 %% 44802049 = 5621370 = 0x0055c67a\n");
-  fprintf(fp,"0xf87441e7e28f     = 273178205610639\n");
-  fprintf(fp,"\t273178205610639     %% 133121 = 69961   = 0x011149\n");
-
-  fprintf(fp,"\nFor the first three elements on the fifth line\n");
-  fprintf(fp,"0x919fe8a0e7 = 0b1001000110011111111010001010000011100111\n");
-  fprintf(fp,"\tEven Pos  0b10001011111011001101 <- Hwt = 12\n");
-  fprintf(fp,"\tOdd  Pos  0b01010111100000001011 <- Hwt =  9\n");
-  fprintf(fp,"\tAnswer = 9-12 = -3\n");
-  fprintf(fp,"0x7c68390e68 = 0b0111110001101000001110010000111001101000\n");
-  fprintf(fp,"\tEven Pos  0b01100110011000110110 <- Hwt = 10\n");
-  fprintf(fp,"\tOdd Pos   0b11101000010100101000 <- Hwt =  8\n");
-  fprintf(fp,"\tAnswer = 8-10 = -2\n");
-  fprintf(fp,"0x88217902f8 = 0b1000100000100001011110010000001011111000\n");
-  fprintf(fp,"\tEvenPos   0b10100100011000011110 <- Hwt =  9\n");
-  fprintf(fp,"\tOdd Pos   0b00000001110100001100 <- Hwt =  6\n");
-  fprintf(fp,"\tAnswer = 6-9 = -3\n");
 
   fprintf(fp,"\n----------------------------------------------------------------\n\n");
 
@@ -91,12 +64,12 @@ void Test_XOF()
       // Initialise again to get a fresh PRNG
       fprintf(fp,"modp  : ");
       InitXOF(&xof, seed, len,1);
-      a=get_random_field_element(&xof,&mod133121);
-      print(fp,&mod133121,a); fprintf(fp," ");
+      a=get_random_field_element(&xof,&mod18433);
+      print(fp,&mod18433,a); fprintf(fp," ");
       a = get_random_field_element(&xof, &mod44802049);
       print(fp,&mod44802049,a);  fprintf(fp," ");
-      a = get_random_field_element(&xof, &mod133121);
-      print(fp,&mod133121,a); fprintf(fp," ");
+      a = get_random_field_element(&xof, &mod18433);
+      print(fp,&mod18433,a); fprintf(fp," ");
       fprintf(fp,"\n");
 
       // Initialise again to gt a fresh PRNG
@@ -180,6 +153,8 @@ void Test_FFT()
   fp=fopen("../KAT/Test-FFT-KAT.txt","w+");
 
   fprintf(fp,"Testing FFT\n\n");
+  fprintf(fp,"lima_2p_512\n");
+  Test_FFT_Sub(fp,&lima_2p_512);
   fprintf(fp,"lima_2p_1024\n");
   Test_FFT_Sub(fp,&lima_2p_1024);
   fprintf(fp,"lima_2p_2048\n");
@@ -321,6 +296,8 @@ void Test_Encryption(int sklen,int pklen)
 void Test_Enc()
 {
     printf("Testing Enc internal routines\n");
+    printf("lima_2p_512\n");
+    Test_Enc_Sub(&lima_2p_512);
     printf("lima_2p_1024\n");
     Test_Enc_Sub(&lima_2p_1024);
     printf("lima_2p_2048\n");
@@ -338,10 +315,10 @@ void Test_Enc()
 
 void Test_ENC()
 {
-  int sk_sz[6]={9217,18433,9163,15673,21865,24745};
-  int pk_sz[6]={6145,12289,6109,10449,14577,16497};
+  int sk_sz[7]={3073, 6145, 12289,9163,15673,21865,24745};
+  int pk_sz[7]={2049, 4097, 8193,6109,10449,14577,16497};
 
-  for (int i=0; i<6; i++)
+  for (int i=0; i<7; i++)
     { Test_Encryption(sk_sz[i],pk_sz[i]); }
 }
 

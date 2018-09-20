@@ -17,9 +17,11 @@ int Key_Generation(uint8_t* pks,unsigned long long pklen,
   lima_sk_t sk;
   
   lima_params_t *params;
-  if (sklen==9217 && pklen==6145)
+  if (sklen==3073 && pklen==2049)
+    { params=&lima_2p_512; }
+  else if (sklen==6145 && pklen==4097)
     { params=&lima_2p_1024; }
-  else if (sklen==18433 && pklen==12289)
+  else if (sklen==12289 && pklen==8193)
     { params=&lima_2p_2048; }
   else if (sklen==9163 && pklen==6109)
     { params=&lima_sp_1018; }

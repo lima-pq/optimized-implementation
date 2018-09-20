@@ -17,18 +17,22 @@ PQCgenKAT_kem-1822.exe:  kem.c api.h rng.c rng.h PQCgenKAT_kem.c
 	$(CC) $(CFLAGS) -DLIMASZ=1822 PQCgenKAT_kem.c kem.c rng.c -o PQCgenKAT_kem-1822.exe $(LIBS)
 
 PQCgenKAT_kem-2062.exe:  kem.c api.h rng.c rng.h PQCgenKAT_kem.c
-	$(CC) $(CFLAGS) -DLIMASZ=2062 PQCgenKAT_kem.c kem.c rng.c -o PQCgenKAT_kem-2062.exe $(LIBS)
+	$(CC) $(CFLAGS) -DLIMASZ=2062 PQCgenKAT_kem.c kem.c rng.c -o PQCgenKAT_kem-2062.exe  $(LIBS)
+
+PQCgenKAT_kem-512.exe:  kem.c api.h rng.c rng.h PQCgenKAT_kem.c
+	$(CC) $(CFLAGS) -DLIMASZ=512 PQCgenKAT_kem.c kem.c rng.c -o PQCgenKAT_kem-512.exe  $(LIBS)
 
 PQCgenKAT_kem-1024.exe:  kem.c api.h rng.c rng.h PQCgenKAT_kem.c
-	$(CC) $(CFLAGS) -DLIMASZ=1024 PQCgenKAT_kem.c kem.c rng.c -o PQCgenKAT_kem-1024.exe $(LIBS)
+	$(CC) $(CFLAGS) -DLIMASZ=1024 PQCgenKAT_kem.c kem.c rng.c -o PQCgenKAT_kem-1024.exe  $(LIBS)
 
-KATFiles: PQCgenKAT_kem-2048.exe PQCgenKAT_kem-1018.exe PQCgenKAT_kem-1306.exe PQCgenKAT_kem-1822.exe PQCgenKAT_kem-2062.exe PQCgenKAT_kem-1024.exe
+KATFiles: PQCgenKAT_kem-2048.exe PQCgenKAT_kem-1018.exe PQCgenKAT_kem-1306.exe PQCgenKAT_kem-1822.exe PQCgenKAT_kem-2062.exe PQCgenKAT_kem-1024.exe PQCgenKAT_kem-512.exe
 	./PQCgenKAT_kem-2048.exe 
 	./PQCgenKAT_kem-1018.exe 
 	./PQCgenKAT_kem-1306.exe 
 	./PQCgenKAT_kem-1822.exe 
 	./PQCgenKAT_kem-2062.exe 
 	./PQCgenKAT_kem-1024.exe
+	./PQCgenKAT_kem-512.exe
 
 clean:
 	rm *.exe *.rsp *.req

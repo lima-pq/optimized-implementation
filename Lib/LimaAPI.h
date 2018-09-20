@@ -20,7 +20,7 @@
 
 /* The lengths in this function for pk and sk define the param
  * type which will be used (i.e. for LIMA-2p-1024 we have
- * pklen=6145 and sklen=9217)
+ * pklen=4097 and sklen=6145)
  *
  * This function outputs 
  *   - The encoding of the public key (a bytestring of length pklen)
